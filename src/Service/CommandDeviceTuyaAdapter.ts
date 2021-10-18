@@ -22,11 +22,11 @@ type TuyaQueryConstructor = {
 };
 
 class TuyaQuery {
-    host: string = 'https://openapi.tuyaeu.com';
-    accessKey: string;
-    secretKey: string;
-    httpClient: AxiosInstance;
-    token: TuyaAuthToken | undefined;
+    private host: string = 'https://openapi.tuyaeu.com';
+    private accessKey: string;
+    private secretKey: string;
+    private httpClient: AxiosInstance;
+    private token: TuyaAuthToken | undefined;
     constructor(params: TuyaQueryConstructor) {
         this.accessKey = params.accessKey;
         this.secretKey = params.secretKey;
@@ -41,6 +41,7 @@ class TuyaQuery {
             this.token = params.token;
         }
     }
+
     private async checkToken() {
         if (!this.token) {
             await this.getToken();

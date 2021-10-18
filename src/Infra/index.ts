@@ -41,13 +41,39 @@ import { SwitchBotSensorManager } from "../Service/SensorSwitchBotAdapter";
     await new Promise(resolve => setTimeout(resolve, 3000));
     setInterval(() => {
         refresh();
-    }, 5000);
+    }, 30000);
     await refreshDevices();
     await new Promise(resolve => setTimeout(resolve, 3000));
     setInterval(() => {
         refreshDevices();
     }, 60000*3);
     const checkRules = async () => {
+        // chauffe eau
+        // allumer chaque jour de 4h30 à 7h
+        // allumer chaque jour de 13h à 14h
+        const chauffeEauDevice = devices.find(device => device.name === 'Chauffe-eau');
+        if (chauffeEauDevice) {
+            const date = {
+                now: new Date().getTime(),
+            }
+            const limit = {
+                '4h30': new Date().setHours(4, 30, 0),
+                '7h00': new Date().setHours(7,0),
+                '12h30': new Date().setHours(12, 30),
+                '14h00': new Date().setHours(13,59),
+            }
+            if (date.now < limit['4h30'] && chauffeEauDevice.isOn) {
+                await chauffeEauDevice.off();
+            } else if (date.now >= limit['4h30'] && date.now < limit['7h00'] && !chauffeEauDevice.isOn) {
+                await chauffeEauDevice.on();
+            } else if (date.now > limit['7h00'] && date.now < limit['12h30'] && chauffeEauDevice.isOn) {
+                await chauffeEauDevice.off();
+            } else if (date.now >= limit['12h30'] && date.now < limit['14h00'] && !chauffeEauDevice.isOn) {
+                await chauffeEauDevice.on();
+            } else if (date.now > limit['14h00'] && chauffeEauDevice.isOn) {
+                await chauffeEauDevice.off();
+            }
+        }
         /****************************/
         // cuisine
         // de 4h à 7h -> allumer so temperature < 19.5
@@ -92,12 +118,19 @@ import { SwitchBotSensorManager } from "../Service/SensorSwitchBotAdapter";
         // entre 19h et 00h -> allumer radiateur si temperateur < 20
         /****************************/
         const chambreDevice = devices.find(device => device.name === 'Radiateur chambre bebe');
+        const chambreVmcDevice = devices.find(device => device.name === 'Ventilation chambre');
         const chambreSensor = sensors.find(sensor => sensor.name === 'Chambre bebe');
-        if (chambreDevice && chambreSensor) {
+        console.log('chambreVmcDevice', chambreVmcDevice);
+        if (chambreDevice && chambreSensor && chambreVmcDevice) {
             console.log('chambre and sensor found');
             const date = {
                 now: new Date().getTime(),
             }
+            if (chambreSensor.humidity > 58 && !chambreVmcDevice?.isOn) {
+                await chambreVmcDevice.on();
+            } else if (chambreSensor.humidity < 58 && chambreVmcDevice.isOn) {
+                await chambreVmcDevice.off();
+            } 
             const limit = {
                 '4h30': new Date().setHours(4, 30, 0),
                 '7h00': new Date().setHours(7,0),
@@ -106,16 +139,16 @@ import { SwitchBotSensorManager } from "../Service/SensorSwitchBotAdapter";
             }
             if (date.now >= limit['4h30'] && date.now <= limit['7h00']) {
                 if (chambreSensor.temperature < 19.5 && !chambreDevice.isOn) {
-                    chambreDevice.on();
+                    await chambreDevice.on();
                 } else if (chambreDevice.isOn && chambreSensor.temperature >= 19.5) {
-                    chambreDevice.off();
+                    await chambreDevice.off();
                 }
             }
             if (date.now >= limit['19h00'] && date.now <= limit['00h00']) {
                 if (chambreSensor.temperature < 20 && !chambreDevice.isOn) {
-                    chambreDevice.on();
+                    await chambreDevice.on();
                 } else if (chambreDevice.isOn && chambreSensor.temperature >= 20) {
-                    chambreDevice.off();
+                    await chambreDevice.off();
                 }
             }
             if ((date.now > limit['00h00'] || date.now < limit['4h30']) && chambreSensor.temperature < 19 && !chambreDevice.isOn) {
@@ -149,27 +182,27 @@ import { SwitchBotSensorManager } from "../Service/SensorSwitchBotAdapter";
             }
             if (date.now >= limit['4h30'] && date.now <= limit['7h00']) {
                 if (salonSensor.temperature < 21 && !salonDevice.isOn) {
-                    salonDevice.on();
+                    await salonDevice.on();
                 } else if (salonDevice.isOn && salonSensor.temperature >= 21) {
-                    salonDevice.off();
+                    await salonDevice.off();
                 }
             }
             if (date.now >= limit['7h00'] && date.now <= limit['19h00']) {
                 if (salonSensor.temperature < 20 && !salonDevice.isOn) {
-                    salonDevice.on();
+                    await salonDevice.on();
                 } else if (salonDevice.isOn && salonSensor.temperature >= 20) {
-                    salonDevice.off();
+                    await salonDevice.off();
                 }
             }
             if (date.now >= limit['19h00'] && date.now <= limit['23h00']) {
                 if (salonSensor.temperature < 20 && !salonDevice.isOn) {
-                    salonDevice.on();
+                    await salonDevice.on();
                 } else if (salonDevice.isOn && salonSensor.temperature >= 20) {
-                    salonDevice.off();
+                    await salonDevice.off();
                 }
             }
             if ((date.now >= limit['23h00'] || date.now < limit['4h30']) && salonDevice.isOn) {
-                salonDevice.off();
+                await salonDevice.off();
             }
         }
     }
@@ -177,15 +210,6 @@ import { SwitchBotSensorManager } from "../Service/SensorSwitchBotAdapter";
     setInterval(async () => {
         await checkRules();
     }, 60000);
-    // routine
-    // chauffe eau
-    // allumer chaque jour de 4h30 à 7h
-    // allumer chaque jour de 13h à 14h
-
-
-    
-
-
     // salle de bain
     // allumer de 4h à 7h si temperature < 20
 })();
