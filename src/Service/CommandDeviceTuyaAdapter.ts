@@ -70,7 +70,7 @@ class TuyaQuery {
         }
         this.token = (<any>login).result;
         console.log('token', this.token);
-        this.token!.expire_time = new Date().getTime() + this.token!.expire_time - 60;
+        this.token!.expire_time = new Date().getTime() + ((this.token!.expire_time - 60) * 1000);
     }
     private async getToken() {
         const method = 'GET';
@@ -91,7 +91,7 @@ class TuyaQuery {
         }
         this.token = (<any>login).result;
         console.log('token', this.token);
-        this.token!.expire_time = new Date().getTime() + this.token!.expire_time - 60;
+        this.token!.expire_time = new Date().getTime() + ((this.token!.expire_time - 60) * 1000);
     }
     private async encryptStr(str: string, secret: string): Promise<string> {
         return crypto.createHmac('sha256', secret).update(str, 'utf8').digest('hex').toUpperCase();
@@ -197,6 +197,7 @@ class CommandDeviceTuyaAdater implements CommandDevice{
             body: { commands: [ { code: "switch_1", value: true } ] },
             url: `/v1.0/devices/${this.id}/commands`,
         });
+        console.log(`${this.name} is on`);
     }
     async off() {
         const result = await this.query.run({
@@ -205,6 +206,7 @@ class CommandDeviceTuyaAdater implements CommandDevice{
             body: { commands: [ { code: "switch_1", value: false } ] },
             url: `/v1.0/devices/${this.id}/commands`,
         });
+        console.log(`${this.name} is off`);
     }
     async toggle() {
         const state = await this.getStatus();

@@ -31,9 +31,11 @@ class CommandDeviceSonOffAdater implements CommandDevice{
   }
   async on() {
     await this.connection.setDevicePowerState(this.id, 'on');
+    console.log(`${this.name} is on`);
   }
   async off() {
     await this.connection.setDevicePowerState(this.id, 'on');
+    console.log(`${this.name} is off`);
   }
   async toggle() {
     await this.connection.toggleDevice(this.id);
