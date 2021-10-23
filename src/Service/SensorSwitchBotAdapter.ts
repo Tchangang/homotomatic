@@ -1,7 +1,7 @@
 import fetch from 'node-fetch';
 import { Sensor } from '../Domain/Sensor';
 
-class SensorSwitchBotAdapter {
+class SensorSwitchBotAdapter implements Sensor {
     id: string;
     private token: string;
     name: string;
@@ -33,6 +33,14 @@ class SensorSwitchBotAdapter {
         if (resp?.body?.temperature) {
             this.temperature = resp?.body?.temperature;
         }
+    }
+    json() {
+        return {
+            id: this.id,
+            name: this.name,
+            temperature: this.temperature,
+            humidity: this.humidity,
+        };
     }
 }
 

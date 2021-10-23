@@ -103,15 +103,27 @@ app.get('/devices', async (req, res) => {
     if (!user) {
         return res.status(403).json({ message: 'Invalid authentication' });
     }
-    return res.status(200).json({});
+    return res.status(200).json(devices.map(device => device.json()));
 });
+
 app.get('/sensors', async (req, res) => {
     const user = await AuthUser(req.query, users);
     if (!user) {
         return res.status(403).json({ message: 'Invalid authentication' });
     }
-    return res.status(200).json({});
+    return res.status(200).json(sensors.map(sensor => sensor.json()));
 });
+
+app.get('/rules', async (req, res) => {
+    const user = await AuthUser(req.query, users);
+    if (!user) {
+        return res.status(403).json({ message: 'Invalid authentication' });
+    }
+    return res.status(200).json(rules);
+});
+
+
+
 app.listen(env.PORT, () => {
     console.log(`Example app listening at http://localhost:${env.PORT}`)
 });
