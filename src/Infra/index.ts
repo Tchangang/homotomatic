@@ -125,6 +125,6 @@ app.get('/rules', async (req, res) => {
 
 
 app.listen(env.PORT, () => {
-    console.log(`Example app listening at http://localhost:${env.PORT}`)
+    console.log(`Server listening on port ${env.PORT}`);
 });
   
