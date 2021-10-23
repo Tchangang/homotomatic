@@ -217,6 +217,14 @@ class CommandDeviceTuyaAdater implements CommandDevice{
         }
         await this.off();
     }
+    json() {
+        return {
+            id: this.id,
+            name: this.name,
+            manufacturer: this.manufacturer,
+            status: this.isOn,
+        };
+    }
 }
 
 class TuyaManager {

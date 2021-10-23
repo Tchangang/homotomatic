@@ -26,7 +26,6 @@ class CommandDeviceSonOffAdater implements CommandDevice{
   }
   async refresh() {
     const state = await this.connection.getDevicePowerState(this.id);
-    console.log('state', state);
     this.isOn = state.state === 'on';
   }
   async on() {
@@ -34,11 +33,19 @@ class CommandDeviceSonOffAdater implements CommandDevice{
     console.log(`${this.name} is on`);
   }
   async off() {
-    await this.connection.setDevicePowerState(this.id, 'on');
+    await this.connection.setDevicePowerState(this.id, 'off');
     console.log(`${this.name} is off`);
   }
   async toggle() {
     await this.connection.toggleDevice(this.id);
+  }
+  json() {
+    return {
+      id: this.id,
+      name: this.name,
+      manufacturer: this.manufacturer,
+      status: this.isOn,
+    };
   }
 }
 export {

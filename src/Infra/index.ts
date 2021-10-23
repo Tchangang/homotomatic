@@ -1,215 +1,118 @@
+import express from 'express';
+import AuthUser from '../Controller/AuthUser';
 import { CommandDevice } from "../Domain/CommandDevice";
+import RulesManager from "../Domain/RuleManager";
+import { Rule } from "../Domain/RuleManager/Rule";
+import { Sensor } from "../Domain/Sensor";
+import { User } from "../Domain/User";
 import EnvReader from "../Readers/EnvReader";
+import AirTableRulesAdapter from "../Service/AirTableRulesAdapter";
 import { SonOffDeviceManager } from "../Service/CommandDeviceSonoffAdapter";
 import { TuyaManager } from "../Service/CommandDeviceTuyaAdapter";
 import { SwitchBotSensorManager } from "../Service/SensorSwitchBotAdapter";
 
-(async () => {
-    const env = EnvReader.get();
-    const switchBotManager = new SwitchBotSensorManager(env.SWITCHBOT_TOKEN);
-    const sensors = await switchBotManager.listDevices();
-    const tuyaManager = new TuyaManager({
-        accessKey: env.TUYA_CLIENT_ID,
-        secretKey: env.TUYA_CLIENT_SECRET,
+const env = EnvReader.get();
+const airtableService = new AirTableRulesAdapter({
+    apikey: env.AIRTABLE_APIKEY,
+    airtableId: env.AIRTABLE_TABLE_ID,
+});
+const rulesManager = new RulesManager();
+const switchBotManager = new SwitchBotSensorManager(env.SWITCHBOT_TOKEN);
+const sonOffManager = new SonOffDeviceManager({
+    email: env.EWELINK_EMAIL,
+    password: env.EWELINK_PASSWORD,
+    region: env.EWELINK_REGION,
+});
+const tuyaManager = new TuyaManager({
+    accessKey: env.TUYA_CLIENT_ID,
+    secretKey: env.TUYA_CLIENT_SECRET,
+});
+let rules: Array<Rule> = [];
+const devices: Array<CommandDevice> = [];
+const sensors: Array<Sensor> = [];
+let users: Array<User> = [];
+
+const refreshSensors = async () => {
+    console.log('\n\nSensors:\n');
+    for (let i = 0; i < sensors.length; i += 1) {
+        const sensor = sensors[i];
+        await sensor.refresh();
+        console.log(`${sensor.name}:\nHumidité: ${sensor.humidity}\nTempérature: ${sensor.temperature}\n`);
+    }
+}
+const refreshDevices = async () => {
+    console.log('\n\nDevices:\n')
+    for (let i = 0; i < devices.length; i += 1) {
+        const device = devices[i];
+        await device.refresh();
+        console.log(`${device.name} (${device.manufacturer}):\nisOn: ${device.isOn}\n`);
+    }
+}
+const checkRules = async () => {
+    const logs = rulesManager.eval(rules, {
+        sensors, 
+        devices,
     });
-    const sonOffManager = new SonOffDeviceManager({
-        email: env.EWELINK_EMAIL,
-        password: env.EWELINK_PASSWORD,
-        region: env.EWELINK_REGION,
-    });
-    const devices: Array<CommandDevice> = [];
+    console.log(JSON.stringify(logs, null, 4));
+}
+
+async function init() {
+    rules = await airtableService.getRules();
+    sensors.push(...await switchBotManager.listDevices());
     devices.push(...(await tuyaManager.listDevicesForUser(env.TUYA_USER_ID)));
     devices.push(...(await sonOffManager.listDevices()));
-    console.log(devices);
-    
-    const refresh = async () => {
-        console.log('\n\n');
-        for (let i = 0; i < sensors.length; i += 1) {
-            const sensor = sensors[i];
-            await sensor.refresh();
-            console.log(`${sensor.name}:\nHumidité: ${sensor.humidity}\nTempérature: ${sensor.temperature}\n\n`);
-        }
-    }
-    const refreshDevices = async () => {
-        for (let i = 0; i < devices.length; i += 1) {
-            const device = devices[i];
-            await device.refresh();
-            console.log(`${device.name} (${device.manufacturer}):\nisOn: ${device.isOn}\n\n`);
-        }
-    }
-    await refresh();
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    setInterval(() => {
-        refresh();
-    }, 30000);
+    await refreshSensors();
     await refreshDevices();
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    await checkRules();
+    users = await airtableService.getUsers();
+    console.log('users', users);
+    /* *********************************** */
+    // Start refresh devices and sensors
+    /* *********************************** */
+    // await new Promise(resolve => setTimeout(resolve, 3000));
+    setInterval(() => {
+        refreshSensors();
+    }, env.REFRESH_SENSOR);
+    // await new Promise(resolve => setTimeout(resolve, 3000));
     setInterval(() => {
         refreshDevices();
-    }, 60000*3);
-    const checkRules = async () => {
-        // chauffe eau
-        // allumer chaque jour de 4h30 à 7h
-        // allumer chaque jour de 13h à 14h
-        const chauffeEauDevice = devices.find(device => device.name === 'Chauffe-eau');
-        if (chauffeEauDevice) {
-            const date = {
-                now: new Date().getTime(),
-            }
-            const limit = {
-                '4h30': new Date().setHours(4, 30, 0),
-                '7h00': new Date().setHours(7,0),
-                '12h30': new Date().setHours(12, 30),
-                '14h00': new Date().setHours(13,59),
-            }
-            if (date.now < limit['4h30'] && chauffeEauDevice.isOn) {
-                await chauffeEauDevice.off();
-            } else if (date.now >= limit['4h30'] && date.now < limit['7h00'] && !chauffeEauDevice.isOn) {
-                await chauffeEauDevice.on();
-            } else if (date.now > limit['7h00'] && date.now < limit['12h30'] && chauffeEauDevice.isOn) {
-                await chauffeEauDevice.off();
-            } else if (date.now >= limit['12h30'] && date.now < limit['14h00'] && !chauffeEauDevice.isOn) {
-                await chauffeEauDevice.on();
-            } else if (date.now > limit['14h00'] && chauffeEauDevice.isOn) {
-                await chauffeEauDevice.off();
-            }
-        }
-        /****************************/
-        // cuisine
-        // de 4h à 7h -> allumer so temperature < 19.5
-        // entre 22h et 00h00 si moins de 18 -> allumer radiateur
-        /****************************/
-        const cuisineDevice = devices.find(device => device.name === 'Radiateur cuisine');
-        const cuisineSensor = sensors.find(sensor => sensor.name === 'Cuisine');
-        console.log('cuisineDevice', cuisineDevice, cuisineSensor);
-        if (cuisineDevice && cuisineSensor) {
-            console.log('cuisine and sensor found');
-            const date = {
-                now: new Date().getTime(),
-            }
-            const limit = {
-                '4h30': new Date().setHours(4, 30, 0),
-                '7h00': new Date().setHours(7,0),
-                '22h00': new Date().setHours(22, 0),
-                '00h00': new Date().setHours(23,59),
-            }
-            if (date.now >= limit['4h30'] && date.now <= limit['7h00']) {
-                if (cuisineSensor.temperature < 19.5 && !cuisineDevice.isOn) {
-                    cuisineDevice.on();
-                } else if (cuisineDevice.isOn && cuisineSensor.temperature >= 19.5) {
-                    cuisineDevice.off();
-                }
-            }
-            if (date.now >= limit['22h00'] && date.now <= limit['00h00']) {
-                if (cuisineSensor.temperature < 18 && !cuisineDevice.isOn) {
-                    cuisineDevice.on();
-                } else if (cuisineDevice.isOn && cuisineSensor.temperature >= 18) {
-                    cuisineDevice.off();
-                }
-            }
-            if ((date.now > limit['00h00'] || date.now < limit['4h30']) && cuisineDevice.isOn) {
-                cuisineDevice.off();
-            }
-        }
-
-        /****************************/
-        // Chambre
-        // si température < 19.5° -> allumer radiateur
-        // entre 19h et 00h -> allumer radiateur si temperateur < 20
-        /****************************/
-        const chambreDevice = devices.find(device => device.name === 'Radiateur chambre bebe');
-        const chambreVmcDevice = devices.find(device => device.name === 'Ventilation chambre');
-        const chambreSensor = sensors.find(sensor => sensor.name === 'Chambre bebe');
-        console.log('chambreVmcDevice', chambreVmcDevice);
-        if (chambreDevice && chambreSensor && chambreVmcDevice) {
-            console.log('chambre and sensor found');
-            const date = {
-                now: new Date().getTime(),
-            }
-            if (chambreSensor.humidity > 58 && !chambreVmcDevice?.isOn) {
-                await chambreVmcDevice.on();
-            } else if (chambreSensor.humidity < 58 && chambreVmcDevice.isOn) {
-                await chambreVmcDevice.off();
-            } 
-            const limit = {
-                '4h30': new Date().setHours(4, 30, 0),
-                '7h00': new Date().setHours(7,0),
-                '19h00': new Date().setHours(19, 0),
-                '00h00': new Date().setHours(23,59),
-            }
-            if (date.now >= limit['4h30'] && date.now <= limit['7h00']) {
-                if (chambreSensor.temperature < 19.5 && !chambreDevice.isOn) {
-                    await chambreDevice.on();
-                } else if (chambreDevice.isOn && chambreSensor.temperature >= 19.5) {
-                    await chambreDevice.off();
-                }
-            }
-            if (date.now >= limit['19h00'] && date.now <= limit['00h00']) {
-                if (chambreSensor.temperature < 20 && !chambreDevice.isOn) {
-                    await chambreDevice.on();
-                } else if (chambreDevice.isOn && chambreSensor.temperature >= 20) {
-                    await chambreDevice.off();
-                }
-            }
-            if ((date.now > limit['00h00'] || date.now < limit['4h30']) && chambreSensor.temperature < 19 && !chambreDevice.isOn) {
-                chambreDevice.on();
-            }
-            if ((date.now > limit['00h00'] || date.now < limit['4h30']) && chambreSensor.temperature) {
-                chambreDevice.off();
-            }
-        }
-
-
-        /****************************/
-        // Salon
-        // allumer de 4h30 à 6h00 si temperature < 20
-        // entre 7h et 23h si températeur inférieur à 20 -> allumer radiateur
-        // entre 23h et 4h30 si température inférieure à 18 -> allumer radiateur
-        /****************************/
-        const salonDevice = devices.find(device => device.name === 'Radiateur salon');
-        const salonSensor = sensors.find(sensor => sensor.name === 'Salon');
-        if (salonDevice && salonSensor) {
-            console.log('salong and sensor found', salonDevice);
-            const date = {
-                now: new Date().getTime(),
-            }
-            const limit = {
-                '4h30': new Date().setHours(4, 30, 0),
-                '6h30': new Date().setHours(6,30, 0),
-                '7h00': new Date().setHours(7,0),
-                '19h00': new Date().setHours(19, 0),
-                '23h00': new Date().setHours(23,0),
-            }
-            if (date.now >= limit['4h30'] && date.now <= limit['7h00']) {
-                if (salonSensor.temperature < 21 && !salonDevice.isOn) {
-                    await salonDevice.on();
-                } else if (salonDevice.isOn && salonSensor.temperature >= 21) {
-                    await salonDevice.off();
-                }
-            }
-            if (date.now >= limit['7h00'] && date.now <= limit['19h00']) {
-                if (salonSensor.temperature < 20 && !salonDevice.isOn) {
-                    await salonDevice.on();
-                } else if (salonDevice.isOn && salonSensor.temperature >= 20) {
-                    await salonDevice.off();
-                }
-            }
-            if (date.now >= limit['19h00'] && date.now <= limit['23h00']) {
-                if (salonSensor.temperature < 20 && !salonDevice.isOn) {
-                    await salonDevice.on();
-                } else if (salonDevice.isOn && salonSensor.temperature >= 20) {
-                    await salonDevice.off();
-                }
-            }
-            if ((date.now >= limit['23h00'] || date.now < limit['4h30']) && salonDevice.isOn) {
-                await salonDevice.off();
-            }
-        }
-    }
-    await checkRules();
+    }, env.REFRESH_DEVICE);
+    /* *********************************** */
+    // Evaluate Rules
+    /* *********************************** */
     setInterval(async () => {
         await checkRules();
-    }, 60000);
-    // salle de bain
-    // allumer de 4h à 7h si temperature < 20
-})();
+    }, env.CHECK_RULES);
+    /* *********************************** */
+    // Refresh rules from airtable
+    /* *********************************** */
+    setInterval(async () => {
+        rules = await airtableService.getRules();
+    }, env.REFRESH_RULES);
+    setInterval(async () => {
+        users = await airtableService.getUsers();
+    }, env.REFRESH_USERS);
+}    
+    
+init();
+
+const app = express();
+
+app.get('/devices', async (req, res) => {
+    const user = await AuthUser(req.query, users);
+    if (!user) {
+        return res.status(403).json({ message: 'Invalid authentication' });
+    }
+    return res.status(200).json({});
+});
+app.get('/sensors', async (req, res) => {
+    const user = await AuthUser(req.query, users);
+    if (!user) {
+        return res.status(403).json({ message: 'Invalid authentication' });
+    }
+    return res.status(200).json({});
+});
+app.listen(env.PORT, () => {
+    console.log(`Example app listening at http://localhost:${env.PORT}`)
+});
+  

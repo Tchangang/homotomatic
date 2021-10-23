@@ -14,6 +14,12 @@ interface CommandDevice {
     on: () => Promise<void>;
     off: () => Promise<void>;
     toggle: () => Promise<void>;
+    json: () => {
+        id: string;
+        name: string;
+        manufacturer: Manufacturer;
+        status: boolean;
+    }
 }
 
 export {
