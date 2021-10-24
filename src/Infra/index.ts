@@ -121,6 +121,13 @@ app.get('/rules', async (req, res) => {
     }
     return res.status(200).json(rules);
 });
+app.get('/time', async (req, res) => {
+    const user = await AuthUser(req.query, users);
+    if (!user) {
+        return res.status(403).json({ message: 'Invalid authentication' });
+    }
+    return res.status(200).json({ date: new Date().toString() });
+});
 
 
 
