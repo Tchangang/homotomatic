@@ -31,7 +31,7 @@ let rules: Array<Rule> = [];
 const devices: Array<CommandDevice> = [];
 const sensors: Array<Sensor> = [];
 let users: Array<User> = [];
-
+let events: Array<any> = [];
 const refreshSensors = async () => {
     console.log('\n\nSensors:\n');
     for (let i = 0; i < sensors.length; i += 1) {
@@ -54,6 +54,9 @@ const checkRules = async () => {
         devices,
     });
     console.log(JSON.stringify(logs, null, 4));
+    if (logs?.length > 0) {
+        events.push(...logs);
+    }
 }
 
 async function init() {
@@ -121,6 +124,13 @@ app.get('/rules', async (req, res) => {
     }
     return res.status(200).json(rules);
 });
+app.get('/events', async (req, res) => {
+    const user = await AuthUser(req.query, users);
+    if (!user) {
+        return res.status(403).json({ message: 'Invalid authentication' });
+    }
+    return res.status(200).json(events);
+});
 app.get('/time', async (req, res) => {
     const user = await AuthUser(req.query, users);
     if (!user) {
@@ -132,9 +142,6 @@ app.get('/time', async (req, res) => {
         timestamp: new Date().getTime(),
      });
 });
-
-
-
 app.listen(env.PORT, () => {
     console.log(`Server listening on port ${env.PORT}`);
 });
