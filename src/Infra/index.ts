@@ -126,7 +126,11 @@ app.get('/time', async (req, res) => {
     if (!user) {
         return res.status(403).json({ message: 'Invalid authentication' });
     }
-    return res.status(200).json({ date: new Date().toString() });
+    return res.status(200).json({
+        date: new Date().toString(),
+        hour: new Date().getHours(),
+        timestamp: new Date().getTime(),
+     });
 });
 
 

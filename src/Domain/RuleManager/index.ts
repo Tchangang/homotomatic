@@ -8,10 +8,13 @@ type DevicesWithSensors = {
 };
 
 class RulesManager {
-    parseRule(left: string, right: string, devicesWithSensors: DevicesWithSensors): { left: number | boolean, right: number | boolean } {
+    parseRule(left: string, right: string, devicesWithSensors: DevicesWithSensors, now: number = new Date().getTime()): {
+        left: number | boolean,
+        right: number | boolean,
+    } {
         if (left === 'timenow') {
             const parsedTime = right.split(':');
-            return { left: new Date().getTime(), right: new Date().setHours(parseInt(parsedTime[0], 10), parseInt(parsedTime[1], 10), 0) };
+            return { left: now, right: new Date().setHours(parseInt(parsedTime[0], 10), parseInt(parsedTime[1], 10), 0) };
         }
         if (left.startsWith('Device.')) {
             const device = {
@@ -57,8 +60,8 @@ class RulesManager {
         }
         throw new Error('Unkwown config');
     }
-    evalRule(rule: Array<string>, devicesWithSensors: DevicesWithSensors) {
-        const { left, right } = this.parseRule(rule[0], rule[2], devicesWithSensors);
+    evalRule(rule: Array<string>, devicesWithSensors: DevicesWithSensors, now: number = new Date().getTime()) {
+        const { left, right } = this.parseRule(rule[0], rule[2], devicesWithSensors, now);
         switch (rule[1]) {
             case '<':
                 return left < right;
@@ -74,9 +77,9 @@ class RulesManager {
                 return false;
         }
     }
-    executeAction(action: Array<string>, devices: Array<CommandDevice>) {
+    executeAction(action: Array<string | boolean>, devices: Array<CommandDevice>) {
         const left = action[0];
-        if (left.startsWith('Device.')) {
+        if (typeof left === 'string' && left.startsWith('Device.')) {
             const device = {
                 name: '',
                 nameWithAttribute: left.replace(new RegExp('Device.', 'gmi'), ''),
@@ -100,10 +103,10 @@ class RulesManager {
             deviceFound.off();
         }
     }
-    eval(rules: Array<Rule>, devicesWithSensors: DevicesWithSensors) {
+    eval(rules: Array<Rule>, devicesWithSensors: DevicesWithSensors, now: number = new Date().getTime()) {
         return rules.filter(rule => rule.active).map((rule) => {
             try { 
-                const evalResult = rule.conditions.map((condition) => this.evalRule(condition, devicesWithSensors));
+                const evalResult = rule.conditions.map((condition) => this.evalRule(condition, devicesWithSensors, now));
                 if (evalResult.filter(result => !!result).length === rule.conditions.length) {
                     console.log(JSON.stringify(rule.conditions, null, 4));
                     rule.actions.map((action) => {
