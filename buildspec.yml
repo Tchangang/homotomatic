@@ -1,15 +1,14 @@
 version: 0.2
 phases:
-    install:
-        commands:
-            - 'npm install'
-    build:
-        commands:
-            - 'npm run tsc'
+  install:
+    commands:
+      - 'npm install'
+  build:
+    commands:
+      - 'npm run tsc'
 artifacts:
-    type: zip
-    files:
-        - package.json
-        - package-lock.json
-        - 'build/**/*'
-        - README.md
+  files:
+      - package.json
+      - package-lock.json
+      - 'build/**/*'
+      - README.md
