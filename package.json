@@ -6,7 +6,7 @@
   "scripts": {
     "test": "npm run jest && exit 1",
     "build": "npm run tsc",
-    "jest": "jest",
+    "jest": "jest ",
     "start": "node ./build/Infra/index.js",
     "tsc": "tsc"
   },
