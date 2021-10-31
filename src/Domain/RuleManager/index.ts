@@ -1,3 +1,4 @@
+import moment from 'moment';
 import { CommandDevice } from "../CommandDevice";
 import { Sensor } from "../Sensor";
 import { Rule } from "./Rule";
@@ -8,13 +9,14 @@ type DevicesWithSensors = {
 };
 
 class RulesManager {
-    parseRule(left: string, right: string, devicesWithSensors: DevicesWithSensors, now: number = new Date().getTime()): {
+    parseRule(left: string, right: string, devicesWithSensors: DevicesWithSensors, now: number = moment().tz('Europe/Paris').valueOf()): {
         left: number | boolean,
         right: number | boolean,
     } {
         if (left === 'timenow') {
             const parsedTime = right.split(':');
-            return { left: now, right: new Date().setHours(parseInt(parsedTime[0], 10), parseInt(parsedTime[1], 10), 0) };
+            const date = moment(new Date().setHours(parseInt(parsedTime[0], 10), parseInt(parsedTime[1], 10), 0)).tz('Europe/Paris');
+            return { left: now, right: date.valueOf() };
         }
         if (left.startsWith('Device.')) {
             const device = {
