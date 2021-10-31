@@ -32,6 +32,7 @@ const devices: Array<CommandDevice> = [];
 const sensors: Array<Sensor> = [];
 let users: Array<User> = [];
 let events: Array<any> = [];
+
 const refreshSensors = async () => {
     console.log('\n\nSensors:\n');
     for (let i = 0; i < sensors.length; i += 1) {
@@ -129,7 +130,7 @@ app.get('/events', async (req, res) => {
     if (!user) {
         return res.status(403).json({ message: 'Invalid authentication' });
     }
-    return res.status(200).json(events);
+    return res.status(200).json(events.slice(0,50));
 });
 app.get('/time', async (req, res) => {
     const user = await AuthUser(req.query, users);
