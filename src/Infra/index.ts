@@ -143,6 +143,12 @@ app.get('/time', async (req, res) => {
         timestamp: new Date().getTime(),
      });
 });
+app.get('/health', async (req, res) => {
+    if (devices.length && sensors.length > 0) {
+        return res.status(200).json({});
+    }
+    return res.status(400);
+});
 app.listen(env.PORT, () => {
     console.log(`Server listening on port ${env.PORT}`);
 });
