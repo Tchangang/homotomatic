@@ -1,4 +1,5 @@
 import express from 'express';
+import moment from 'moment-timezone';
 import AuthUser from '../Controller/AuthUser';
 import { CommandDevice } from "../Domain/CommandDevice";
 import RulesManager from "../Domain/RuleManager";
@@ -138,10 +139,25 @@ app.get('/time', async (req, res) => {
         return res.status(403).json({ message: 'Invalid authentication' });
     }
     return res.status(200).json({
-        date: new Date().toString(),
-        hour: new Date().getHours(),
-        timestamp: new Date().getTime(),
+        system: {
+            date: new Date().toString(),
+            hour: new Date().getHours(),
+            timestamp: new Date().getTime(),
+        },
+        moment: {
+            date: moment().tz('Europe/Paris').date(),
+            hour: moment().tz('Europe/Paris').hours(),
+            timestamp: moment().tz('Europe/Paris').valueOf(),
+        },
      });
+});
+app.get('/refresh', async (req, res) => {
+    const user = await AuthUser(req.query, users);
+    if (!user) {
+        return res.status(403).json({ message: 'Invalid authentication' });
+    }
+    await refreshDevices();
+    return res.status(200).json({ message: 'Refreshed' });
 });
 app.get('/health', async (req, res) => {
     if (devices.length && sensors.length > 0) {
